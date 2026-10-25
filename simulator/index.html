@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Film Logger — v0.1</title>
+  <title>Film Logger — v0.2</title>
   <style>
     :root {
       --bg: #171717;
@@ -66,9 +66,29 @@
       font-size: clamp(13px, 3vw, 22px);
       line-height: 1.25;
     }
-    .exposure { display: flex; gap: 28px; }
-    .exposure span { display: block; }
+    .exposure { display: flex; gap: 18px; align-items: center; }
+    .setting {
+      display: block;
+      padding: 3px 6px;
+      border: 1px solid transparent;
+      min-width: 86px;
+    }
+    .setting span { display: block; }
     .label { font-size: .65em; color: #aaa; }
+    .setting.selected {
+      color: #000;
+      background: #f2f2f2;
+      border-color: #f2f2f2;
+    }
+    .setting.selected .label { color: #333; }
+    .setting.selected::after {
+      content: " EDIT";
+      display: block;
+      font-size: 9px;
+      line-height: 1;
+      margin-top: 2px;
+      letter-spacing: .08em;
+    }
     .controls {
       margin-top: 18px;
       display: grid;
@@ -146,7 +166,7 @@
   <main class="wrap">
     <div class="title">
       <h1>Film Logger — Virtual Prototype</h1>
-      <p>Version 0.1 · UI / navigation prototype</p>
+      <p>Version 0.2 · field selection prototype</p>
     </div>
 
     <section class="device" aria-label="Virtual film logger">
@@ -157,8 +177,12 @@
         </div>
         <div class="oled-main">
           <div class="exposure">
-            <div><span class="label">SHUTTER</span><span id="shutter">1/250</span></div>
-            <div><span class="label">APERTURE</span><span id="aperture">f/5.6</span></div>
+            <div class="setting selected" id="shutterField">
+              <span class="label">SHUTTER</span><span id="shutter">1/250</span>
+            </div>
+            <div class="setting" id="apertureField">
+              <span class="label">APERTURE</span><span id="aperture">f/5.6</span>
+            </div>
           </div>
         </div>
         <div class="oled-footer">
@@ -180,7 +204,7 @@
 
       <div class="feedback" id="feedback">READY — use the buttons to explore the prototype.</div>
       <div class="subtle">
-        v0.1 intentionally focuses on the physical interface and navigation.
+v0.2 tests field selection and value editing.
         Nothing is saved or sent anywhere yet.
       </div>
     </section>
@@ -205,6 +229,8 @@
       selected: "shutter"
     };
 
+    const editableFields = ["shutter", "aperture"];
+
     const $ = id => document.getElementById(id);
     const feedback = $("feedback");
 
@@ -212,23 +238,31 @@
       $("frame").textContent = `FRAME ${String(state.frame).padStart(2,"0")}/${state.maxFrames}`;
       $("shutter").textContent = state.shutter[state.shutterIndex];
       $("aperture").textContent = state.aperture[state.apertureIndex];
-      feedback.textContent = `READY — selected: ${state.selected.toUpperCase()}`;
+
+      $("shutterField").classList.toggle("selected", state.selected === "shutter");
+      $("apertureField").classList.toggle("selected", state.selected === "aperture");
+
+      feedback.textContent = `READY — ${state.selected.toUpperCase()} selected. ↑/↓ changes value; ←/→ selects field.`;
     }
 
     function action(name) {
       if (name === "left" || name === "right") {
         const direction = name === "right" ? 1 : -1;
-        if (state.selected === "shutter") {
-          state.shutterIndex = (state.shutterIndex + direction + state.shutter.length) % state.shutter.length;
-        } else {
-          state.apertureIndex = (state.apertureIndex + direction + state.aperture.length) % state.aperture.length;
-        }
+        const currentIndex = editableFields.indexOf(state.selected);
+        state.selected = editableFields[
+          (currentIndex + direction + editableFields.length) % editableFields.length
+        ];
         render();
         return;
       }
 
       if (name === "up" || name === "down") {
-        state.selected = state.selected === "shutter" ? "aperture" : "shutter";
+        const direction = name === "up" ? 1 : -1;
+        if (state.selected === "shutter") {
+          state.shutterIndex = (state.shutterIndex + direction + state.shutter.length) % state.shutter.length;
+        } else if (state.selected === "aperture") {
+          state.apertureIndex = (state.apertureIndex + direction + state.aperture.length) % state.aperture.length;
+        }
         render();
         return;
       }
@@ -236,7 +270,7 @@
       if (name === "select") {
         $("modalTitle").textContent = "SELECT";
         $("modalText").textContent =
-          `Currently editing ${state.selected}. In the next version this button will enter the full settings/menu system.`;
+          `Currently editing ${state.selected}. Use LEFT/RIGHT to choose a field, then UP/DOWN to change its value. The highlighted field is the one that will be edited.`;
         $("modal").classList.add("open");
         return;
       }
